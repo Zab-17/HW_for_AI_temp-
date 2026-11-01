@@ -90,3 +90,22 @@ Every question a group member puts to the assistant is recorded here in order, w
 - Retrained with the default command: the result is identical to run 3 (same per-batch gradient record). **Final model: `results/fp32/fp32_model.keras` — 91.6% test (142 / 155), 81.5% validation, 99.9% training; 35 epochs, best at epoch 20; 25,800 training windows, all derived from real recordings.**
 - Known limitations of the final model, accepted with the decision: other seeds score 89.0% and 89.7% on test; validation no-gesture is 17 / 33; a still board is classified as a gesture in 4 of 5 orientations.
 - Run 4's result folders (`results/fp32_run4_*`) were deleted at Ziad's request; the run is documented only in this logbook, and the final pipeline contains no invented data.
+
+### 1.14 Following the project description: reference TensorFlow version
+**Instruction (Ziad):** follow the project description (`CSCE4930 - Fall 2026 - Project.pdf`).
+**Finding (assistant):** section 3 of the brief pins the reference environment to TensorFlow / TensorFlow Lite Micro commit 919f693 (TensorFlow 2.6.0); training had used TensorFlow 2.21. Everything else in Requirement 1 part A matched the brief. Remaining parts of Requirement 1: deploy on the SparkFun Edge, characterize the deployed graph, compare desktop and on-device outputs.
+**Options offered:** (1) keep the trained weights and convert with TensorFlow 2.6.0; (2) port training to 2.6.0 and retrain; (3) convert with 2.21 and only check compatibility.
+**Decision (Ziad):** option 1.
+**Result:** TensorFlow 2.6.0 cannot run on Ziad's MacBook (Apple M1 Pro). Only Intel builds exist for macOS; under Rosetta it stops immediately with "The TensorFlow library was compiled to use AVX instructions, but these aren't available on your machine." A different machine is needed for option 1.
+
+### 1.15 Hand-off to Moaz, who has the board
+**Instruction (Ziad):** push the work to `https://github.com/Zab-17/HW_for_AI_temp-.git` so Moaz can pull it and work with the board.
+**Done:** one commit containing all 54 project files (code, tests, results, README, this logbook, the brief), authored and committed as Zab-17 with Claude as co-author, pushed to `main`. The two earlier repository-skeleton commits by Moaz were not pushed, because Ziad's rule allows only Zab-17 and Claude as contributors on his repositories; Moaz's skeleton work is credited in the README contributions table. The classroom repository was not touched.
+
+### 1.16 Option (b): convert without the board, write a handoff, push
+**Instruction (Ziad):** write a compact handoff file for Moaz's Claude with what was done and what he should do; do option (b) since it needs no board; then push.
+**Done:**
+- `training/convert_fp32.py`: converts `results/fp32/fp32_model.keras` with TensorFlow 2.21 (no quantization) to `results/fp32/model_fp32.tflite` (21,736 bytes) and a C array; saves the 155 test inputs, labels and laptop outputs. Keras and the TensorFlow Lite interpreter agree on all 155 predictions (largest probability difference 4.8e-7; both 91.6%).
+- `analysis/inspect_tflite_graph.py` → `results/fp32/tflite_graph.md`: 11 operators. ReLU is fused into both CONV_2D and the first FULLY_CONNECTED; the three Dropout layers are removed; Softmax is a separate operator; Flatten became SHAPE → STRIDED_SLICE → PACK → RESHAPE because the batch size was left flexible. Every operator is registered in the pinned TensorFlow Lite Micro `all_ops_resolver.cc`, and the pinned resolver ignores operator versions.
+- Open decision for the group: convert with a fixed batch of 1 to reduce Flatten to a single RESHAPE.
+- `HANDOFF.md`: state, model contract, deviation, and Moaz's tasks. 27 tests pass.

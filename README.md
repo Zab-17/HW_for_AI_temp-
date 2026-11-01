@@ -56,3 +56,4 @@ suggestions are logged in [`AI_LOGBOOK.md`](AI_LOGBOOK.md).
 | 2026-11-01 | Ziad | First FP32 training run (`results/fp32_run1_raw_inputs/`): 49.7% test accuracy; diagnosed as raw input scale causing dead ReLU neurons |
 | 2026-11-01 | Ziad | Fixed input scaling and added training augmentation from real recordings only; final FP32 model `results/fp32/`: 91.6% test / 81.5% validation (AI-assisted, see `AI_LOGBOOK.md` §1.11) |
 | 2026-11-01 | Ziad | Reviewed an AI-proposed run with 1,000 computer-generated no-gesture examples and rejected it; invented data removed from the pipeline (`AI_LOGBOOK.md` §1.13) |
+| 2026-11-01 | Ziad | Converted the FP32 model to TensorFlow Lite, checked it on the laptop, listed its operators and checked them against the pinned TensorFlow Lite Micro; wrote `HANDOFF.md` for Moaz (AI-assisted, §1.14–1.16) |

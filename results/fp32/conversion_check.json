@@ -1,0 +1,10 @@
+{
+  "model_bytes": 21736,
+  "tensorflow": "2.21.0",
+  "examples": 155,
+  "max_abs_difference": 4.76837158203125e-07,
+  "mean_abs_difference": 1.5707621869864852e-08,
+  "same_prediction": 155,
+  "reference_accuracy": 0.9161290322580645,
+  "candidate_accuracy": 0.9161290322580645
+}
