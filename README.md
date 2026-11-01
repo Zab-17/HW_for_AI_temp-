@@ -57,3 +57,6 @@ suggestions are logged in [`AI_LOGBOOK.md`](AI_LOGBOOK.md).
 | 2026-11-01 | Ziad | Fixed input scaling and added training augmentation from real recordings only; final FP32 model `results/fp32/`: 91.6% test / 81.5% validation (AI-assisted, see `AI_LOGBOOK.md` §1.11) |
 | 2026-11-01 | Ziad | Reviewed an AI-proposed run with 1,000 computer-generated no-gesture examples and rejected it; invented data removed from the pipeline (`AI_LOGBOOK.md` §1.13) |
 | 2026-11-01 | Ziad | Converted the FP32 model to TensorFlow Lite, checked it on the laptop, listed its operators and checked them against the pinned TensorFlow Lite Micro; wrote `HANDOFF.md` for Moaz (AI-assisted, §1.14–1.16) |
+| 2026-11-01 | Ziad | Reconverted with a fixed batch of 1 so Flatten is one RESHAPE (11 → 8 operators, identical outputs) (AI-assisted, §1.18) |
+| 2026-11-01 | Ziad | Requirement 3 laptop part: parameters, storage and multiply-accumulates per operator, `.tflite` size breakdown; report notes for Requirements 1 and 3 (AI-assisted, §1.19) |
+| 2026-11-01 | Ziad | Second handoff to Moaz (`HANDOFF_2.md`) and push to the transfer repository (§1.21) |

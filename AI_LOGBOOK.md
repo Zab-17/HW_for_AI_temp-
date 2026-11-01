@@ -109,3 +109,49 @@ Every question a group member puts to the assistant is recorded here in order, w
 - `analysis/inspect_tflite_graph.py` → `results/fp32/tflite_graph.md`: 11 operators. ReLU is fused into both CONV_2D and the first FULLY_CONNECTED; the three Dropout layers are removed; Softmax is a separate operator; Flatten became SHAPE → STRIDED_SLICE → PACK → RESHAPE because the batch size was left flexible. Every operator is registered in the pinned TensorFlow Lite Micro `all_ops_resolver.cc`, and the pinned resolver ignores operator versions.
 - Open decision for the group: convert with a fixed batch of 1 to reduce Flatten to a single RESHAPE.
 - `HANDOFF.md`: state, model contract, deviation, and Moaz's tasks. 27 tests pass.
+
+### 1.17 Moaz's review; TensorFlow version and Flatten handed to Moaz
+**Context:** Moaz's assistant merged the temp repository into the group repository and listed open items: the TensorFlow version (the brief pins 2.6.0; 2.21 was used) and the Flatten conversion (4 operators instead of 1). Moaz chose to keep TensorFlow 2.21 and report the deviation, and to convert with a fixed batch of 1.
+**Questions (Ziad):** what is the Flatten question and which requirement is it; what is the problem; why use 2.21.
+**Answers (summary):** Flatten turns the 14 × 16 block of numbers into one line of 224 for the dense layer. The flexible batch size made the converter add SHAPE, STRIDED_SLICE and PACK to compute the line length at run time. This is part of Requirement 1 ("operators that are fused, removed, or represented differently"); the brief asks for it to be explained, not fixed. Tested in scratch: rebuilding the network with `keras.Input(batch_shape=(1, 128, 3, 1))`, copying the trained weights and converting gives 8 operators and 20,624 bytes, with outputs identical on all 155 test inputs. A first attempt through `tf.function(...).get_concrete_function(...)` stored the weights as variables (19 extra operators, wrong outputs) and must not be used. TensorFlow 2.21 was used because 2.6.0 cannot run on Apple Silicon (AVX); the assistant had installed 2.21 without first checking section 3 of the brief.
+**Decision (Ziad):** Moaz sorts out both the TensorFlow version and the Flatten conversion. The assistant does not change the model.
+
+### 1.18 Flatten fixed here after all
+**Decision (Ziad):** "we do the Flatten question" (reverses the Flatten part of 1.17; the TensorFlow version stays with Moaz).
+**Questions (Ziad):** what is the Flatten question; what was done and why, simply.
+**Answer (summary):** the board runs a list of instructions. Flatten only rearranges 224 numbers from a 14 × 16 grid into one line, which needs one RESHAPE. Because the model was saved to accept any number of recordings at once, the converter added SHAPE, STRIDED_SLICE and PACK to work out "how many recordings?" on every run. The board always receives exactly one, so those three always compute 1.
+**Done:** `training/convert_fp32.py` now rebuilds the network with a fixed batch of 1 (`with_fixed_batch`, same layers and weights, with a test) before converting. Result: 8 operators instead of 11, `model_fp32.tflite` 20,772 bytes instead of 21,736, Keras and TensorFlow Lite agree on all 155 test predictions (largest difference 4.8e-7, 91.6% both). `results/fp32/tflite_graph.md`, the C array and the laptop outputs were regenerated; `HANDOFF.md` updated. 28 tests pass.
+
+### 1.19 Records for the report; Requirement 3 laptop part
+**Instruction (Ziad):** record everything for the report, and do the next task that does not need the board.
+**Done:**
+- `report/notes_requirement1.md` and `report/notes_requirement3.md`: report-ready facts and tables.
+- `analysis/tflite_model.py`: a small read-only view of a `.tflite` file, shared by the analysis scripts. `analysis/inspect_tflite_graph.py` now uses it, with unchanged output.
+- `analysis/model_cost.py` → `results/fp32/model_cost.md` / `.json`: parameters, storage and multiply-accumulates per operator. Totals: 4,300 parameters, 17,200 bytes, 62,016 multiply-accumulates, matching the hand calculation, with tests.
+  - Largest storage is dense1 (14,400 bytes); largest work is conv1 (36,864), explained by weight reuse (384 uses per conv1 weight, 1 per dense weight).
+  - The 20,772-byte file breaks down as 17,200 bytes of parameters plus 3,572 bytes of graph description (names, structure, metadata, padding).
+- 30 tests pass. The parts of Requirement 3 that need the firmware build or the board (Flash share, cycles) remain with Moaz.
+
+### 1.20 Planning questions (recorded on request)
+**Questions (Ziad) and answers (summary):**
+- *Did you convert to TensorFlow Lite?* Yes: `results/fp32/model_fp32.tflite`, plus a C array for the firmware. It was converted with TensorFlow 2.21 (deviation from the brief's 2.6.0, see §1.14), and its predictions match Keras on all 155 test inputs.
+- *What is the next step?* Running the model on the board, which is Moaz's part. The `fp32` tag and interview on 2 November cover Requirements 1–4, so the board-free parts should be done in parallel.
+- *What did you tell Moaz to do?* The five tasks in `HANDOFF.md`: reference toolchain and a stock example; firmware running the 155 test inputs; board-vs-laptop comparison; commit with README steps; then the measurements for Requirements 2–4. Also the rules: no invented data, log AI use, commit under his own name.
+- *What can I do in parallel?* Board-free tasks, in suggested order:
+  1. the Flatten decision (done, §1.18);
+  2. a comparison script for the board's outputs;
+  3. Requirement 3 counts (done, §1.19);
+  4. Requirement 2 theoretical memory per operator;
+  5. Requirement 4 theory (compute-bound or memory-bound per operator).
+
+  Also possible on the laptop, untested: the pinned library's arena plan, and a firmware build for the memory map.
+
+### 1.21 Second handoff and push
+**Instruction (Ziad):** write a new handoff for Moaz and push.
+**Done:** `HANDOFF_2.md`, covering:
+- the changes since `HANDOFF.md` (Flatten fixed, do not reconvert; TensorFlow version left to Moaz; Requirement 3 laptop part; report notes);
+- how to merge with Moaz's uncommitted edits (expected conflicts in `AI_LOGBOOK.md` and `README.md`, keep both sides);
+- Moaz's tasks, including a proposed `RESULT,<index>,<four probabilities>` line format for the board output, and the warning that `test_inputs.npy` is already in g;
+- what Ziad does in parallel.
+
+The work is pushed to the temp repository as a commit authored by Zab-17.

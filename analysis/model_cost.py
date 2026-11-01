@@ -1,0 +1,203 @@
+"""Requirement 3, laptop part: parameters, parameter storage and multiply-accumulates for every deployed
+operator, and where the bytes of the .tflite file go. Cycles and firmware Flash share need the board.
+
+Run from the repository root:
+    .venv/bin/python -m analysis.model_cost
+Writes results/fp32/model_cost.md and results/fp32/model_cost.json.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from analysis.tflite_model import OperatorView, TfliteModel
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+RUN_DIR = REPOSITORY_ROOT / "results" / "fp32"
+FLOAT32_BYTES = 4
+WEIGHTED_OPERATORS = {"CONV_2D", "FULLY_CONNECTED"}
+
+
+@dataclass(frozen=True)
+class OperatorCost:
+    index: int
+    operator: str
+    parameters: int
+    parameter_bytes: int
+    weights: int
+    multiply_accumulates: int
+    other_work: str
+    calculation: str
+
+
+def main() -> None:
+    model = TfliteModel.from_file(RUN_DIR / "model_fp32.tflite")
+    costs = operator_costs(model)
+    breakdown = size_breakdown(model)
+    (RUN_DIR / "model_cost.md").write_text(render_report(costs, breakdown, model.size_bytes))
+    summary = {
+        "operators": [asdict(c) for c in costs],
+        "file_bytes": model.size_bytes,
+        "file_breakdown": breakdown,
+    }
+    (RUN_DIR / "model_cost.json").write_text(json.dumps(summary, indent=2))
+    print((RUN_DIR / "model_cost.md").read_text())
+
+
+def operator_costs(model: TfliteModel) -> list[OperatorCost]:
+    return [_cost(op) for op in model.operators()]
+
+
+def _cost(op: OperatorView) -> OperatorCost:
+    parameters = sum(t.element_count for t in op.inputs if t.is_constant and t.type_name == "FLOAT32")
+    weights = op.inputs[1].element_count if op.name in WEIGHTED_OPERATORS else 0
+    macs = _multiply_accumulates(op)
+    return OperatorCost(
+        index=op.index,
+        operator=op.name,
+        parameters=parameters,
+        parameter_bytes=parameters * FLOAT32_BYTES,
+        weights=weights,
+        multiply_accumulates=macs,
+        other_work=_other_work(op),
+        calculation=_calculation(op, parameters, macs),
+    )
+
+
+def _multiply_accumulates(op: OperatorView) -> int:
+    """Each output value of a convolution or dense layer is one dot product over its inputs."""
+    if op.name not in WEIGHTED_OPERATORS:
+        return 0
+    return op.outputs[0].element_count * _dot_product_length(op)
+
+
+def _dot_product_length(op: OperatorView) -> int:
+    weight_shape = op.inputs[
+        1
+    ].shape  # CONV_2D: [filters, height, width, channels]; FULLY_CONNECTED: [outputs, inputs]
+    return math.prod(weight_shape[1:])
+
+
+def _other_work(op: OperatorView) -> str:
+    outputs = op.outputs[0].element_count
+    if op.name in WEIGHTED_OPERATORS:
+        relu = f" and {outputs:,} ReLU clamps" if op.fused_activation == "RELU" else ""
+        return f"{outputs:,} bias additions{relu}"
+    if op.name == "MAX_POOL_2D":
+        height, width = op.pool_window
+        return f"{outputs * (height * width - 1):,} comparisons ({height}×{width} window, {outputs} outputs)"
+    if op.name == "SOFTMAX":
+        return f"{outputs} exponentials, a sum and {outputs} divisions (plus a max for numerical safety)"
+    if op.name == "RESHAPE":
+        return "none: only the shape description changes, no value is computed or moved"
+    return "not characterised"
+
+
+def _calculation(op: OperatorView, parameters: int, macs: int) -> str:
+    if op.name not in WEIGHTED_OPERATORS:
+        return "—"
+    weight_shape = op.inputs[1].shape
+    biases = op.inputs[2].element_count
+    factors = [str(d) for d in weight_shape[1:]]
+    dot = f"({' × '.join(factors)})" if len(factors) > 1 else factors[0]
+    return (
+        f"parameters = {weight_shape[0]} × {dot} weights + {biases} biases = {parameters:,}; "
+        f"multiply-accumulates = {op.outputs[0].element_count:,} outputs × {dot} = {macs:,}"
+    )
+
+
+def size_breakdown(model: TfliteModel) -> dict[str, int]:
+    """Where the file's bytes go; the last entry is whatever the other entries do not account for."""
+    tensors = model.tensors()
+    parts = {
+        "float32 parameters": sum(
+            t.size_bytes for t in tensors if t.is_constant and t.type_name == "FLOAT32"
+        ),
+        "other constant data (RESHAPE target shape)": sum(
+            t.size_bytes for t in tensors if t.is_constant and t.type_name != "FLOAT32"
+        ),
+        "metadata buffers": sum(model.metadata_sizes().values()),
+        "tensor name characters": sum(len(t.name.encode()) for t in tensors),
+    }
+    parts["FlatBuffer structure (tables, offsets, shapes, operator list) and alignment padding"] = (
+        model.size_bytes - sum(parts.values())
+    )
+    return parts
+
+
+def render_report(costs: list[OperatorCost], breakdown: dict[str, int], file_bytes: int) -> str:
+    lines = [
+        "# Model storage and computational work (Requirement 3, laptop part)",
+        "",
+        "Generated by `analysis/model_cost.py` from `results/fp32/model_fp32.tflite`"
+        " (FP32, 4 bytes per value).",
+        "",
+        "| # | Operator | Parameters | Parameter storage (bytes) | Multiply-accumulates | Other work |",
+        "|---|---|---|---|---|---|",
+    ]
+    lines += [
+        f"| {c.index} | {c.operator} | {c.parameters:,} | {c.parameter_bytes:,} | {c.multiply_accumulates:,} "
+        f"| {c.other_work} |"
+        for c in costs
+    ]
+    total_parameters = sum(c.parameters for c in costs)
+    total_bytes = sum(c.parameter_bytes for c in costs)
+    total_macs = sum(c.multiply_accumulates for c in costs)
+    lines.append(f"| | **Total** | **{total_parameters:,}** | **{total_bytes:,}** | **{total_macs:,}** | |")
+    lines += ["", "## Representative calculations", ""]
+    lines += [f"- {c.operator} #{c.index}: {c.calculation}" for c in costs if c.calculation != "—"]
+    lines += _storage_versus_work(costs)
+    lines += _file_breakdown_lines(breakdown, file_bytes)
+    lines += [
+        "",
+        "## Still needs the firmware build or the board",
+        "",
+        "- Model share of the firmware Flash footprint and the main non-model contributions (linker map).",
+        "- Full-model and per-operator latency and processor cycles; cycles per multiply-accumulate.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _storage_versus_work(costs: list[OperatorCost]) -> list[str]:
+    storage_leader = max(costs, key=lambda c: c.parameter_bytes)
+    work_leader = max(costs, key=lambda c: c.multiply_accumulates)
+    lines = [
+        "",
+        "## Largest storage versus largest work",
+        "",
+        f"- Largest parameter storage: {storage_leader.operator} #{storage_leader.index} "
+        f"({storage_leader.parameter_bytes:,} bytes).",
+        f"- Largest multiply-accumulate count: {work_leader.operator} #{work_leader.index} "
+        f"({work_leader.multiply_accumulates:,}).",
+        "- They differ because of weight reuse: how many multiply-accumulates each weight takes part in.",
+        "",
+        "| # | Operator | Weights | Multiply-accumulates | Uses of each weight |",
+        "|---|---|---|---|---|",
+    ]
+    lines += [
+        f"| {c.index} | {c.operator} | {c.weights:,} | {c.multiply_accumulates:,} "
+        f"| {c.multiply_accumulates // c.weights:,} |"
+        for c in costs
+        if c.weights
+    ]
+    lines += [
+        "",
+        "A convolution slides the same small filter over every position, so each weight is used once per",
+        "output position; a fully connected layer uses each weight exactly once.",
+    ]
+    return lines
+
+
+def _file_breakdown_lines(breakdown: dict[str, int], file_bytes: int) -> list[str]:
+    lines = ["", f"## Where the {file_bytes:,} bytes of the .tflite file go", "", "| Part | Bytes | Share |"]
+    lines.append("|---|---|---|")
+    lines += [f"| {part} | {size:,} | {100 * size / file_bytes:.1f}% |" for part, size in breakdown.items()]
+    return lines
+
+
+if __name__ == "__main__":
+    main()

@@ -11,14 +11,16 @@ Read first: `CSCE4930 - Fall 2026 - Project.pdf` (the brief), `AI_LOGBOOK.md` (e
 
 ## Done so far (Requirement 1 part A, plus the laptop half of part B)
 - **Final FP32 model:** `results/fp32/fp32_model.keras`: 91.6% test (142/155), 81.5% validation. Known weaknesses (logbook §1.13): other seeds score 89.0–89.7%; validation "negative" is 17/33; a board lying still is classified as a gesture.
-- **Converted model:** `results/fp32/model_fp32.tflite` (21,736 bytes, FP32). The same bytes as a C array are in `results/fp32/model_fp32_data.cc` (`g_model_fp32`, `g_model_fp32_len`, `alignas(16)`).
+- **Converted model:** `results/fp32/model_fp32.tflite` (20,772 bytes, FP32, batch size fixed to 1). The same bytes as a C array are in `results/fp32/model_fp32_data.cc` (`g_model_fp32`, `g_model_fp32_len`, `alignas(16)`).
 - **Laptop check:** Keras and the TensorFlow Lite interpreter agree on all 155 test predictions; largest probability difference 4.8e-7 (`results/fp32/conversion_check.json`).
-- **Operator list:** `results/fp32/tflite_graph.md` lists 11 operators:
+- **Operator list:** `results/fp32/tflite_graph.md` lists 8 operators (5 types):
   - CONV_2D + RELU twice, MAX_POOL_2D twice
-  - SHAPE, STRIDED_SLICE, PACK, RESHAPE (Flatten)
+  - RESHAPE (Flatten)
   - FULLY_CONNECTED + RELU, FULLY_CONNECTED, SOFTMAX
   - The three Dropout layers are removed.
   - The pinned TensorFlow Lite Micro registers every operator and ignores operator versions.
+
+- **Requirement 3, laptop part (done):** `results/fp32/model_cost.md`: parameters, storage and multiply-accumulates per operator (4,300 / 17,200 bytes / 62,016), and the `.tflite` size breakdown. Report-ready notes are in `report/`. Remaining for Moaz: the Flash share from the linker map, and cycles per operator.
 
 ## Model contract (the firmware must match it exactly)
 - **Input:** float32 `[1, 128, 3, 1]`: 128 readings × (x, y, z) in **g**, i.e. raw milli-g **divided by 1000**.
@@ -29,11 +31,11 @@ Read first: `CSCE4930 - Fall 2026 - Project.pdf` (the brief), `AI_LOGBOOK.md` (e
   - laptop outputs in `desktop_keras_outputs.npy` and `desktop_tflite_outputs.npy`
 - **Tensor arena:** 61,440 bytes (60 KiB), fixed by the brief.
 
-## Deviation to report, and an open decision
+## Deviation to report, and a decision already made
 - **TensorFlow version:** the brief pins TensorFlow / TensorFlow Lite Micro to commit 919f693 (TensorFlow 2.6.0). TensorFlow 2.6.0 cannot run on Ziad's Apple Silicon Mac (its build needs AVX instructions), so training and conversion used TensorFlow 2.21. The board side must still use the pinned TensorFlow Lite Micro.
   - If Moaz's computer is x86-64, the conversion can be redone in TensorFlow 2.6.0: rebuild the network with `training/model.py`, copy the weights layer by layer (conv1, conv2, dense1, dense2), check that the outputs match, then convert.
   - TensorFlow 2.6.0 cannot open Keras 3 `.keras` files, so export the weights to `.npz` from the 2.21 environment first.
-- **Open decision for the group:** Flatten became 4 operators because the batch size was left flexible. Converting with a fixed batch of 1 should leave a single RESHAPE. Not changed yet.
+- **Flatten (decided by Ziad, done):** with the batch size left flexible, Flatten became SHAPE, STRIDED_SLICE, PACK and RESHAPE. The model is now converted with a fixed batch of 1, so Flatten is a single RESHAPE; outputs are unchanged on all 155 test inputs. **Do not reconvert on your side.** The TensorFlow version question stays with Moaz.
 
 ## Moaz's tasks (the `fp32` tag and interview on 2 November cover Requirements 1–4)
 1. **Set up the reference toolchain:**
@@ -43,7 +45,7 @@ Read first: `CSCE4930 - Fall 2026 - Project.pdf` (the brief), `AI_LOGBOOK.md` (e
 
    Flash a stock example (hello_world for the SparkFun Edge) first, to prove that the board, toolchain and flashing all work.
 2. **Firmware:**
-   - Load `g_model_fp32` with an op resolver that registers the 8 operator types above, and a 60 KiB arena.
+   - Load `g_model_fp32` with an op resolver that registers the 5 operator types above (CONV_2D, MAX_POOL_2D, RESHAPE, FULLY_CONNECTED, SOFTMAX), and a 60 KiB arena.
    - Run each of the 155 test inputs.
    - Print the 4 probabilities over serial with 9 significant digits.
    - Send the inputs without rounding: either a const array in Flash (238,080 bytes) or raw float32 bytes over serial.

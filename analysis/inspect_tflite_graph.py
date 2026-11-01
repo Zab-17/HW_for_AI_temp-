@@ -9,89 +9,23 @@ Writes results/fp32/tflite_graph.md.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
-from tensorflow.lite.python import schema_py_generated as schema
-
+from analysis.tflite_model import OperatorView, TensorView, TfliteModel
 from training.model import build_baseline_model
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 RUN_DIR = REPOSITORY_ROOT / "results" / "fp32"
 PINNED_MICRO_DIR = REPOSITORY_ROOT / "tensorflow" / "tensorflow" / "lite" / "micro"
-OPTIONS_WITH_FUSED_ACTIVATION = {"Conv2DOptions", "Pool2DOptions", "FullyConnectedOptions"}
-
-
-@dataclass(frozen=True)
-class OperatorRow:
-    index: int
-    name: str
-    version: int
-    fused_activation: str
-    inputs: str
-    output_shape: str
-    output_tensor: str
 
 
 def main() -> None:
-    model = schema.Model.GetRootAs((RUN_DIR / "model_fp32.tflite").read_bytes(), 0)
-    operators = read_operators(model)
+    operators = TfliteModel.from_file(RUN_DIR / "model_fp32.tflite").operators()
     registered = registered_micro_operators(PINNED_MICRO_DIR / "all_ops_resolver.cc")
     layer_names = [layer.name for layer in build_baseline_model().layers]
     report = render_report(operators, registered, layer_names)
     (RUN_DIR / "tflite_graph.md").write_text(report)
     print(report)
-
-
-def read_operators(model) -> list[OperatorRow]:
-    graph = model.Subgraphs(0)
-    return [_operator_row(model, graph, index) for index in range(graph.OperatorsLength())]
-
-
-def _operator_row(model, graph, index: int) -> OperatorRow:
-    operator = graph.Operators(index)
-    code = model.OperatorCodes(operator.OpcodeIndex())
-    output = graph.Tensors(int(operator.OutputsAsNumpy()[0]))
-    return OperatorRow(
-        index=index,
-        name=_enum_name(schema.BuiltinOperator, max(code.BuiltinCode(), code.DeprecatedBuiltinCode())),
-        version=code.Version(),
-        fused_activation=_fused_activation(operator),
-        inputs="; ".join(_describe_tensor(model, graph, int(i)) for i in operator.InputsAsNumpy() if i >= 0),
-        output_shape=str(_shape(output)),
-        output_tensor=output.Name().decode(),
-    )
-
-
-def _describe_tensor(model, graph, tensor_index: int) -> str:
-    tensor = graph.Tensors(tensor_index)
-    is_constant = model.Buffers(tensor.Buffer()).DataLength() > 0
-    role = "constant" if is_constant else "activation"
-    return f"{role} {_shape(tensor)}"
-
-
-def _shape(tensor) -> list[int]:
-    """The schema returns 0 instead of an empty array for a scalar tensor."""
-    dimensions = tensor.ShapeAsNumpy()
-    return [int(d) for d in dimensions] if isinstance(dimensions, np.ndarray) else []
-
-
-def _fused_activation(operator) -> str:
-    options_name = _enum_name(schema.BuiltinOptions, operator.BuiltinOptionsType())
-    if options_name not in OPTIONS_WITH_FUSED_ACTIVATION:
-        return "n/a"
-    options = getattr(schema, options_name)()
-    table = operator.BuiltinOptions()
-    options.Init(table.Bytes, table.Pos)
-    return _enum_name(schema.ActivationFunctionType, options.FusedActivationFunction())
-
-
-def _enum_name(enum_class, value: int) -> str:
-    """Schema enums are plain classes of constants; find the constant's name from its value."""
-    return next(
-        name for name, number in vars(enum_class).items() if not name.startswith("_") and number == value
-    )
 
 
 def registered_micro_operators(all_ops_resolver: Path) -> set[str]:
@@ -105,7 +39,7 @@ def _camel_to_operator_name(camel: str) -> str:
     return re.sub(r"(?<=[a-z])(?=[A-Z0-9])", "_", camel).upper()
 
 
-def render_report(operators: list[OperatorRow], registered: set[str], layer_names: list[str]) -> str:
+def render_report(operators: list[OperatorView], registered: set[str], layer_names: list[str]) -> str:
     lines = [
         "# Converted FP32 model: operators the board runs",
         "",
@@ -114,13 +48,8 @@ def render_report(operators: list[OperatorRow], registered: set[str], layer_name
         "| # | Operator | Version | Fused activation | Inputs | Output shape | Keras layers in name |",
         "|---|---|---|---|---|---|---|",
     ]
-    for op in operators:
-        sources = ", ".join(name for name in layer_names if name in op.output_tensor) or "(model output)"
-        lines.append(
-            f"| {op.index} | {op.name} | {op.version} | {op.fused_activation} | {op.inputs} "
-            f"| {op.output_shape} | {sources} |"
-        )
-    every_name = " ".join(op.output_tensor for op in operators)
+    lines += [_operator_line(op, layer_names) for op in operators]
+    every_name = " ".join(op.outputs[0].name for op in operators)
     removed = [name for name in layer_names if name not in every_name]
     lines += ["", "## Keras layers that do not appear in any operator output name", ""]
     lines += [f"- {name}" for name in removed] or ["- none"]
@@ -128,7 +57,7 @@ def render_report(operators: list[OperatorRow], registered: set[str], layer_name
     lines += ["| Operator | Registered in `all_ops_resolver.cc` |", "|---|---|"]
     lines += [
         f"| {name} | {'yes' if name in registered else 'NO'} |"
-        for name in sorted({o.name for o in operators})
+        for name in sorted({op.name for op in operators})
     ]
     lines += [
         "",
@@ -137,6 +66,21 @@ def render_report(operators: list[OperatorRow], registered: set[str], layer_name
         "",
     ]
     return "\n".join(lines)
+
+
+def _operator_line(op: OperatorView, layer_names: list[str]) -> str:
+    output = op.outputs[0]
+    sources = ", ".join(name for name in layer_names if name in output.name) or "(model output)"
+    inputs = "; ".join(_describe(tensor) for tensor in op.inputs)
+    return (
+        f"| {op.index} | {op.name} | {op.version} | {op.fused_activation} | {inputs} "
+        f"| {list(output.shape)} | {sources} |"
+    )
+
+
+def _describe(tensor: TensorView) -> str:
+    role = "constant" if tensor.is_constant else "activation"
+    return f"{role} {list(tensor.shape)}"
 
 
 if __name__ == "__main__":

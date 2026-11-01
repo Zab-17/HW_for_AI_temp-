@@ -1,0 +1,92 @@
+{
+  "operators": [
+    {
+      "index": 0,
+      "operator": "CONV_2D",
+      "parameters": 104,
+      "parameter_bytes": 416,
+      "weights": 96,
+      "multiply_accumulates": 36864,
+      "other_work": "3,072 bias additions and 3,072 ReLU clamps",
+      "calculation": "parameters = 8 \u00d7 (4 \u00d7 3 \u00d7 1) weights + 8 biases = 104; multiply-accumulates = 3,072 outputs \u00d7 (4 \u00d7 3 \u00d7 1) = 36,864"
+    },
+    {
+      "index": 1,
+      "operator": "MAX_POOL_2D",
+      "parameters": 0,
+      "parameter_bytes": 0,
+      "weights": 0,
+      "multiply_accumulates": 0,
+      "other_work": "2,688 comparisons (3\u00d73 window, 336 outputs)",
+      "calculation": "\u2014"
+    },
+    {
+      "index": 2,
+      "operator": "CONV_2D",
+      "parameters": 528,
+      "parameter_bytes": 2112,
+      "weights": 512,
+      "multiply_accumulates": 21504,
+      "other_work": "672 bias additions and 672 ReLU clamps",
+      "calculation": "parameters = 16 \u00d7 (4 \u00d7 1 \u00d7 8) weights + 16 biases = 528; multiply-accumulates = 672 outputs \u00d7 (4 \u00d7 1 \u00d7 8) = 21,504"
+    },
+    {
+      "index": 3,
+      "operator": "MAX_POOL_2D",
+      "parameters": 0,
+      "parameter_bytes": 0,
+      "weights": 0,
+      "multiply_accumulates": 0,
+      "other_work": "448 comparisons (3\u00d71 window, 224 outputs)",
+      "calculation": "\u2014"
+    },
+    {
+      "index": 4,
+      "operator": "RESHAPE",
+      "parameters": 0,
+      "parameter_bytes": 0,
+      "weights": 0,
+      "multiply_accumulates": 0,
+      "other_work": "none: only the shape description changes, no value is computed or moved",
+      "calculation": "\u2014"
+    },
+    {
+      "index": 5,
+      "operator": "FULLY_CONNECTED",
+      "parameters": 3600,
+      "parameter_bytes": 14400,
+      "weights": 3584,
+      "multiply_accumulates": 3584,
+      "other_work": "16 bias additions and 16 ReLU clamps",
+      "calculation": "parameters = 16 \u00d7 224 weights + 16 biases = 3,600; multiply-accumulates = 16 outputs \u00d7 224 = 3,584"
+    },
+    {
+      "index": 6,
+      "operator": "FULLY_CONNECTED",
+      "parameters": 68,
+      "parameter_bytes": 272,
+      "weights": 64,
+      "multiply_accumulates": 64,
+      "other_work": "4 bias additions",
+      "calculation": "parameters = 4 \u00d7 16 weights + 4 biases = 68; multiply-accumulates = 4 outputs \u00d7 16 = 64"
+    },
+    {
+      "index": 7,
+      "operator": "SOFTMAX",
+      "parameters": 0,
+      "parameter_bytes": 0,
+      "weights": 0,
+      "multiply_accumulates": 0,
+      "other_work": "4 exponentials, a sum and 4 divisions (plus a max for numerical safety)",
+      "calculation": "\u2014"
+    }
+  ],
+  "file_bytes": 20772,
+  "file_breakdown": {
+    "float32 parameters": 17200,
+    "other constant data (RESHAPE target shape)": 8,
+    "metadata buffers": 112,
+    "tensor name characters": 1133,
+    "FlatBuffer structure (tables, offsets, shapes, operator list) and alignment padding": 2319
+  }
+}

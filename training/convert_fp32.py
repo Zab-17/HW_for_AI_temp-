@@ -13,6 +13,7 @@ Writes to results/fp32/:
 
 Converted with TensorFlow 2.21 because the brief's reference TensorFlow 2.6.0 cannot run on
 Apple Silicon (its only macOS build needs AVX instructions); see AI_LOGBOOK.md §1.14.
+The batch size is fixed to 1 before converting, as on the board (AI_LOGBOOK.md §1.18).
 """
 
 from __future__ import annotations
@@ -29,11 +30,12 @@ from training.train_fp32 import DATA_DIR, RESULTS_ROOT
 RUN_DIR = RESULTS_ROOT / "fp32"
 C_ARRAY_NAME = "g_model_fp32"
 BYTES_PER_LINE = 12
+DEPLOYED_BATCH_SIZE = 1  # the board classifies one window at a time
 
 
 def main() -> None:
     model = keras.models.load_model(RUN_DIR / "fp32_model.keras")
-    model_bytes = convert(model)
+    model_bytes = convert(with_fixed_batch(model, DEPLOYED_BATCH_SIZE))
     (RUN_DIR / "model_fp32.tflite").write_bytes(model_bytes)
     (RUN_DIR / "model_fp32_data.cc").write_text(as_c_array(model_bytes, C_ARRAY_NAME))
     inputs, labels = build_model_inputs(load_recordings(DATA_DIR, TEST_SPLIT), EvaluationWindows())
@@ -44,6 +46,21 @@ def main() -> None:
     report |= compare_outputs(keras_outputs, tflite_outputs, labels)
     (RUN_DIR / "conversion_check.json").write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))
+
+
+def with_fixed_batch(model: keras.Model, batch_size: int) -> keras.Sequential:
+    """The same layers and weights with a fixed batch size.
+
+    With the batch size left open, the converter turns Flatten into SHAPE, STRIDED_SLICE, PACK
+    and RESHAPE to work out the target shape at run time; with it fixed, Flatten is one RESHAPE.
+    """
+    fixed = keras.Sequential(
+        [keras.Input(batch_shape=(batch_size, *model.input_shape[1:]))]
+        + [type(layer).from_config(layer.get_config()) for layer in model.layers],
+        name=model.name,
+    )
+    fixed.set_weights(model.get_weights())
+    return fixed
 
 
 def convert(model: keras.Model) -> bytes:

@@ -1,5 +1,5 @@
 {
-  "model_bytes": 21736,
+  "model_bytes": 20772,
   "tensorflow": "2.21.0",
   "examples": 155,
   "max_abs_difference": 4.76837158203125e-07,
