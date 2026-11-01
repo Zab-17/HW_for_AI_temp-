@@ -1,0 +1,45 @@
+Epoch 1/100
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1793561738.581902 28042219 node_def_util.cc:682] NodeDef mentions attribute use_unbounded_threadpool which is not in the op definition: Op<name=MapDataset; signature=input_dataset:variant, other_arguments: -> handle:variant; attr=f:func; attr=Targuments:list(type),min=0; attr=output_types:list(type),min=1; attr=output_shapes:list(shape),min=1; attr=use_inter_op_parallelism:bool,default=true; attr=preserve_cardinality:bool,default=false; attr=force_synchronous:bool,default=false; attr=metadata:string,default=""> This may be expected if your graph generating binary is newer  than this binary. Unknown attributes will be ignored. NodeDef: {{node ParallelMapDatasetV2/_16}}
+28/28 - 1s - 29ms/step - accuracy: 0.3237 - grad_norm_conv1: 518.3505 - grad_norm_conv2: 763.4860 - grad_norm_dense1: 769.3869 - grad_norm_dense2: 237.6297 - loss: 0.0000e+00 - val_accuracy: 0.4022 - val_loss: 22.0030
+Epoch 2/100
+28/28 - 0s - 4ms/step - accuracy: 0.4401 - grad_norm_conv1: 185.6570 - grad_norm_conv2: 181.9141 - grad_norm_dense1: 154.3354 - grad_norm_dense2: 29.4387 - loss: 0.0000e+00 - val_accuracy: 0.5435 - val_loss: 13.1525
+Epoch 3/100
+28/28 - 0s - 4ms/step - accuracy: 0.4942 - grad_norm_conv1: 376.9953 - grad_norm_conv2: 442.9093 - grad_norm_dense1: 362.1092 - grad_norm_dense2: 74.0178 - loss: 0.0000e+00 - val_accuracy: 0.5109 - val_loss: 10.2556
+Epoch 4/100
+28/28 - 0s - 4ms/step - accuracy: 0.5207 - grad_norm_conv1: 290.6501 - grad_norm_conv2: 317.2511 - grad_norm_dense1: 237.1145 - grad_norm_dense2: 69.5861 - loss: 0.0000e+00 - val_accuracy: 0.4348 - val_loss: 5.9740
+Epoch 5/100
+28/28 - 0s - 4ms/step - accuracy: 0.5380 - grad_norm_conv1: 301.4844 - grad_norm_conv2: 215.6495 - grad_norm_dense1: 248.7192 - grad_norm_dense2: 37.2082 - loss: 0.0000e+00 - val_accuracy: 0.3152 - val_loss: 4.3501
+Epoch 6/100
+28/28 - 0s - 4ms/step - accuracy: 0.4885 - grad_norm_conv1: 1.6517e-06 - grad_norm_conv2: 1.7358e-06 - grad_norm_dense1: 1.9933e-06 - grad_norm_dense2: 0.1697 - loss: 0.0000e+00 - val_accuracy: 0.1848 - val_loss: 1.8317
+Epoch 7/100
+28/28 - 0s - 4ms/step - accuracy: 0.4228 - grad_norm_conv1: 0.6749 - grad_norm_conv2: 0.9796 - grad_norm_dense1: 1.1923 - grad_norm_dense2: 13.6852 - loss: 0.0000e+00 - val_accuracy: 0.2826 - val_loss: 1.3527
+Epoch 8/100
+28/28 - 0s - 4ms/step - accuracy: 0.3917 - grad_norm_conv1: 0.6304 - grad_norm_conv2: 1.0317 - grad_norm_dense1: 1.1167 - grad_norm_dense2: 7.8583 - loss: 0.0000e+00 - val_accuracy: 0.2065 - val_loss: 1.3881
+Epoch 9/100
+28/28 - 0s - 4ms/step - accuracy: 0.3537 - grad_norm_conv1: 0.0000e+00 - grad_norm_conv2: 0.0000e+00 - grad_norm_dense1: 0.0000e+00 - grad_norm_dense2: 0.2781 - loss: 0.0000e+00 - val_accuracy: 0.2065 - val_loss: 1.3881
+Epoch 10/100
+28/28 - 0s - 4ms/step - accuracy: 0.3594 - grad_norm_conv1: 0.0000e+00 - grad_norm_conv2: 0.0000e+00 - grad_norm_dense1: 0.0000e+00 - grad_norm_dense2: 0.2776 - loss: 0.0000e+00 - val_accuracy: 0.1848 - val_loss: 1.3871
+Epoch 11/100
+28/28 - 0s - 4ms/step - accuracy: 0.3514 - grad_norm_conv1: 26.0893 - grad_norm_conv2: 43.9224 - grad_norm_dense1: 59.6378 - grad_norm_dense2: 0.3132 - loss: 0.0000e+00 - val_accuracy: 0.2065 - val_loss: 1.3886
+Epoch 12/100
+28/28 - 0s - 4ms/step - accuracy: 0.3548 - grad_norm_conv1: 0.7219 - grad_norm_conv2: 1.1431 - grad_norm_dense1: 1.0806 - grad_norm_dense2: 5.2013 - loss: 0.0000e+00 - val_accuracy: 0.2065 - val_loss: 1.3887
+Epoch 13/100
+28/28 - 0s - 4ms/step - accuracy: 0.3548 - grad_norm_conv1: 11.5637 - grad_norm_conv2: 21.1787 - grad_norm_dense1: 31.8151 - grad_norm_dense2: 27.1929 - loss: 0.0000e+00 - val_accuracy: 0.2065 - val_loss: 1.3889
+Epoch 14/100
+28/28 - 0s - 4ms/step - accuracy: 0.3514 - grad_norm_conv1: 100.4075 - grad_norm_conv2: 72.9220 - grad_norm_dense1: 73.2136 - grad_norm_dense2: 17.2265 - loss: 0.0000e+00 - val_accuracy: 0.2065 - val_loss: 1.3895
+Epoch 15/100
+28/28 - 0s - 4ms/step - accuracy: 0.3491 - grad_norm_conv1: 0.0000e+00 - grad_norm_conv2: 0.0000e+00 - grad_norm_dense1: 0.0000e+00 - grad_norm_dense2: 0.2754 - loss: 0.0000e+00 - val_accuracy: 0.2065 - val_loss: 1.3898
+Epoch 16/100
+28/28 - 0s - 4ms/step - accuracy: 0.3606 - grad_norm_conv1: 0.0000e+00 - grad_norm_conv2: 0.0000e+00 - grad_norm_dense1: 0.0000e+00 - grad_norm_dense2: 0.2746 - loss: 0.0000e+00 - val_accuracy: 0.1848 - val_loss: 1.3985
+Epoch 17/100
+28/28 - 0s - 4ms/step - accuracy: 0.3583 - grad_norm_conv1: 0.0000e+00 - grad_norm_conv2: 0.0000e+00 - grad_norm_dense1: 0.0000e+00 - grad_norm_dense2: 0.2741 - loss: 0.0000e+00 - val_accuracy: 0.2065 - val_loss: 1.3911
+Epoch 17: early stopping
+Restoring model weights from the end of the best epoch: 2.
+{
+  "training": 0.5657,
+  "validation": 0.5435,
+  "test": 0.4968
+}
+
+[exited with code 1]

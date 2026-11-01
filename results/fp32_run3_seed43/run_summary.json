@@ -1,0 +1,41 @@
+{
+  "settings": {
+    "learning_rate": 0.001,
+    "batch_size": 32,
+    "max_epochs": 100,
+    "early_stopping_patience": 15,
+    "jitter_amplitude": 10.0,
+    "random_seed": 43,
+    "augment": true,
+    "negative_window_stride": 10,
+    "run_name": "fp32_run3_seed43"
+  },
+  "windows_after_padding_and_augmentation": {
+    "training": 25800,
+    "validation": 92,
+    "test": 155
+  },
+  "class_weights": {
+    "wing": 1.144,
+    "ring": 1.203,
+    "slope": 1.152,
+    "negative": 0.701
+  },
+  "epochs_run": 24,
+  "best_epoch": 9,
+  "accuracy": {
+    "training": 0.9984,
+    "validation": 0.8587,
+    "test": 0.8903
+  },
+  "loss": {
+    "training": 0.0047,
+    "validation": 0.6467,
+    "test": 0.5517
+  },
+  "meets_90_percent_test_target": false,
+  "versions": {
+    "tensorflow": "2.21.0",
+    "keras": "3.15.1"
+  }
+}
